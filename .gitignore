@@ -1,0 +1,7 @@
+.idea/**/workspace.xml
+.idea/**/tasks.xml
+
+/ansistrano-django2-heroku
+/django2-heroku
+/.env
+/volumes
