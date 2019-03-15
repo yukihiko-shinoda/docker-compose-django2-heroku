@@ -2,7 +2,7 @@
 version: '3.2'
 services:
   database:
-#    command: -c 'ssl=on' -c 'ssl_cert_file=/etc/pki/tls/certs/servercert.pem' -c 'ssl_key_file=/etc/pki/tls/private/serverkey.pem' -c 'ssl_ca_file=/etc/pki/CA/cacert.pem'
+    command: -c 'ssl=on' -c 'ssl_cert_file=/etc/pki/tls/certs/servercert.pem' -c 'ssl_key_file=/etc/pki/tls/private/serverkey.pem' -c 'ssl_ca_file=/etc/pki/CA/cacert.pem'
     container_name: database
     environment:
       POSTGRES_PASSWORD: ${DATABASE_ROOT_PASSWORD}
@@ -15,13 +15,13 @@ services:
         published: 5432
     restart: always
     volumes:
-      - ./volumes/postgresql:/var/lib/postgresql/data
+      - /tmp/django2-heroku/database:/var/lib/postgresql/data
       - ./postgres_conf:/etc/postgres
       - ./postgres_initdb.d:/docker-entrypoint-initdb.d
-#      - /etc/pki:/etc/pki
+      - /etc/pki:/etc/pki
 
   cache:
-    container_name: cacahe
+    container_name: cache
     image: redis:4
     ports:
       - target: 6379
@@ -32,42 +32,42 @@ services:
     build:
       context: django2-heroku
     container_name: web
-    command: "'python manage.py runserver 0.0.0.0:80'"
+    command: [ "database:5432", "--", "python", "manage.py", "runserver_plus", "0.0.0.0:443", "--cert-file", "/etc/pki/tls/certs/ca-bundle.crt" ]
+#    command: [ "database:5432", "--", "python", "manage.py", "migrate" ]
     depends_on:
       - database
       - cache
-    entrypoint:
-      - /usr/bin/wait-for-it/wait-for-it.sh
-      - database:5432
-      - --
-      - /bin/bash
-      - -cl
+#    entrypoint:
+#      - /usr/bin/wait-for-it/wait-for-it.sh
+#      - database:5432
+#      - --
+#      - /bin/bash
+#      - -cl
 #      - "cd /root && ansible-playbook ansistrano-django2-heroku/deploy_without_ansistrano.yml -i ansistrano-django2-heroku/inventories/development -vvv --extra-vars '{\"is_container\": true, \"django_env\": \"${DJANGO_ENV}\", \"application_database_url\": \"postgres://postgres:${DATABASE_USER_PASSWORD}@database:5432/postgres?sslmode=require\", \"django_secret\": \"${DJANGO_SECRET}\"}' && cd /app && heroku local -p 80"
     environment:
+      DATABASE_URL: postgres://app:${DATABASE_USER_PASSWORD}@database:5432/service
       DJANGO_DATABASE_HOST: database
       DJANGO_DATABASE_PASSWORD: ${DATABASE_USER_PASSWORD}
-#      DJANGO_MYSQL_CA: ${SYMFONY_MYSQL_CA}
 #      DJANGO_LOG_LEVEL: ${SYMFONY_LOG_LEVEL}
 #      DJANGO_REDIS_DSN_DEFAULT: redis://cache/0
 #      DJANGO_REDIS_DSN_CACHE: redis://cache/1
 #      DJANGO_REDIS_DSN_SESSION: redis://cache/2
 #      DJANGO_REDIS_DSN_STORAGE: redis://cache/3
       DJANGO_SECRET: ${DJANGO_SECRET}
-#      DJANGO_ENV: ${SYMFONY_ENV?err}
-#    image: python
+      DJANGO_DEBUG: "true"
     links:
     - database
     - cache
     ports:
     - 80:80
+    - 443:443
     privileged: true
-    # restart: always
     tty: true
     volumes:
-    #      - /etc/pki:/etc/pki
-#    - ./ansistrano-django2-heroku:/root/ansistrano-django2-heroku
-    - ./django2-heroku:/app
-#    - /tmp/django2/var/cache:/app/var/cache
-#    - /tmp/django2/var/logs:/app/var/logs
-#    - /tmp/django2/var/sessions:/app/var/sessions
-#    - /tmp/django2/vendor:/app/vendor
+      - /etc/pki:/etc/pki
+#      - ./ansistrano-django2-heroku:/root/ansistrano-django2-heroku
+      - ./django2-heroku:/app
+#      - /tmp/django2/var/cache:/app/var/cache
+#      - /tmp/django2/var/logs:/app/var/logs
+#      - /tmp/django2/var/sessions:/app/var/sessions
+#      - /tmp/django2/vendor:/app/vendor

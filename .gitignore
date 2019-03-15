@@ -3,5 +3,6 @@
 
 /ansistrano-django2-heroku
 /django2-heroku
+/pki/*
+!/pki/.gitkeep
 /.env
-/volumes
