@@ -9,7 +9,7 @@ services:
       POSTGRES_DB: service
       POSTGRES_USER_PASSWORD: ${DATABASE_USER_PASSWORD}
     # ↓ @see https://devcenter.heroku.com/articles/heroku-postgresql#version-support-and-legacy-infrastructure
-    image: postgres:10
+    image: postgres:11
     ports:
       - target: 5432
         published: 5432
@@ -32,6 +32,7 @@ services:
     build:
       context: django2-heroku
     container_name: web
+#    command: [ "database:5432", "--", "python", "manage.py", "runserver", "0.0.0.0:80", "--traceback" ]
     command: [ "database:5432", "--", "python", "manage.py", "runserver_plus", "0.0.0.0:443", "--cert-file", "/etc/pki/tls/certs/servercert.crt", "--key-file", "/etc/pki/tls/private/serverkey.key" ]
 #    command: [ "database:5432", "--", "python", "manage.py", "migrate" ]
     depends_on:
@@ -46,8 +47,8 @@ services:
 #      - "cd /root && ansible-playbook ansistrano-django2-heroku/deploy_without_ansistrano.yml -i ansistrano-django2-heroku/inventories/development -vvv --extra-vars '{\"is_container\": true, \"django_env\": \"${DJANGO_ENV}\", \"application_database_url\": \"postgres://postgres:${DATABASE_USER_PASSWORD}@database:5432/postgres?sslmode=require\", \"django_secret\": \"${DJANGO_SECRET}\"}' && cd /app && heroku local -p 80"
     environment:
       DATABASE_URL: postgres://app:${DATABASE_USER_PASSWORD}@database:5432/service
-      DJANGO_DATABASE_HOST: database
-      DJANGO_DATABASE_PASSWORD: ${DATABASE_USER_PASSWORD}
+#      DJANGO_DATABASE_HOST: database
+#      DJANGO_DATABASE_PASSWORD: ${DATABASE_USER_PASSWORD}
 #      DJANGO_LOG_LEVEL: ${SYMFONY_LOG_LEVEL}
 #      DJANGO_REDIS_DSN_DEFAULT: redis://cache/0
 #      DJANGO_REDIS_DSN_CACHE: redis://cache/1
@@ -55,12 +56,13 @@ services:
 #      DJANGO_REDIS_DSN_STORAGE: redis://cache/3
       DJANGO_SECRET: ${DJANGO_SECRET}
       DJANGO_DEBUG: "true"
+      SLACK_ENDPOINT_URL: ${SLACK_ENDPOINT_URL}
     links:
-    - database
-    - cache
+      - database
+      - cache
     ports:
-    - 80:80
-    - 443:443
+      - 80:80
+      - 443:443
     privileged: true
     tty: true
     volumes:
