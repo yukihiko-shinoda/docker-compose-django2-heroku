@@ -1,12 +1,31 @@
 ---
 version: '3.2'
 services:
-  database:
-    command: -c 'ssl=on' -c 'ssl_cert_file=/etc/pki/tls/certs/servercert.pem' -c 'ssl_key_file=/etc/pki/tls/private/serverkey.pem' -c 'ssl_ca_file=/etc/pki/CA/cacert.pem'
-    container_name: database
+  ssl_certificate:
     environment:
+      DOMAIN_NAME: ${DOMAIN_NAME}
+    image: futureys/ssl-certificate:latest
+    volumes:
+      - pki:/etc/pki
+  database:
+    command:
+      - -c
+      - 'ssl=on'
+      - -c
+      - 'ssl_cert_file=/etc/pki/tls/certs/servercert-${DOMAIN_NAME}.pem'
+      - -c
+      - 'ssl_key_file=/etc/pki/tls/private/serverkey-${DOMAIN_NAME}.pem'
+      - -c
+      - 'ssl_ca_file=/etc/pki/CA/cacert-${DOMAIN_NAME}.pem'
+    container_name: database
+    depends_on:
+      - ssl_certificate
+    entrypoint: setup-certificate.sh
+    environment:
+      DOMAIN_NAME: ${DOMAIN_NAME}
       POSTGRES_PASSWORD: ${DATABASE_ROOT_PASSWORD}
       POSTGRES_DB: service
+      POSTGRES_USER: app
       POSTGRES_USER_PASSWORD: ${DATABASE_USER_PASSWORD}
     # ↓ @see https://devcenter.heroku.com/articles/heroku-postgresql#version-support-and-legacy-infrastructure
     image: postgres:11
@@ -15,10 +34,10 @@ services:
         published: 5432
     restart: always
     volumes:
-      - /tmp/django2-heroku/database:/var/lib/postgresql/data
+      # - /tmp/django2-heroku/database:/var/lib/postgresql/data
       - ./postgres_conf:/etc/postgres
-      - ./postgres_initdb.d:/docker-entrypoint-initdb.d
-      - /etc/pki:/etc/pki
+      - ./postgres_entrypoint/setup-certificate.sh:/usr/local/bin/setup-certificate.sh
+      - pki:/etc/pki
 
   cache:
     container_name: cache
@@ -33,9 +52,20 @@ services:
       context: django2-heroku
     container_name: web
 #    command: [ "database:5432", "--", "python", "manage.py", "runserver", "0.0.0.0:80", "--traceback" ]
-    command: [ "database:5432", "--", "python", "manage.py", "runserver_plus", "0.0.0.0:443", "--cert-file", "/etc/pki/tls/certs/servercert.crt", "--key-file", "/etc/pki/tls/private/serverkey.key" ]
+    command:
+      - database:5432
+      - --
+      - python
+      - manage.py
+      - runserver_plus
+      - 0.0.0.0:443
+      - --cert-file
+      - /etc/pki/tls/certs/servercert-${DOMAIN_NAME}.crt
+      - --key-file
+      - /etc/pki/tls/private/serverkey-${DOMAIN_NAME}.key
 #    command: [ "database:5432", "--", "python", "manage.py", "migrate" ]
     depends_on:
+      - ssl_certificate
       - database
       - cache
 #    entrypoint:
@@ -66,10 +96,12 @@ services:
     privileged: true
     tty: true
     volumes:
-      - /etc/pki:/etc/pki
+      - pki:/etc/pki
 #      - ./ansistrano-django2-heroku:/root/ansistrano-django2-heroku
       - ./django2-heroku:/app
 #      - /tmp/django2/var/cache:/app/var/cache
 #      - /tmp/django2/var/logs:/app/var/logs
 #      - /tmp/django2/var/sessions:/app/var/sessions
 #      - /tmp/django2/vendor:/app/vendor
+volumes:
+  pki:
