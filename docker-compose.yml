@@ -1,5 +1,5 @@
 ---
-version: '3.2'
+version: '3.8'
 services:
   ssl_certificate:
     environment:
@@ -17,7 +17,6 @@ services:
       - 'ssl_key_file=/etc/pki/tls/private/serverkey-${DOMAIN_NAME}.pem'
       - -c
       - 'ssl_ca_file=/etc/pki/CA/cacert-${DOMAIN_NAME}.pem'
-    container_name: database
     depends_on:
       - ssl_certificate
     entrypoint: setup-certificate.sh
@@ -30,8 +29,7 @@ services:
     # ↓ @see https://devcenter.heroku.com/articles/heroku-postgresql#version-support-and-legacy-infrastructure
     image: postgres:11
     ports:
-      - target: 5432
-        published: 5432
+      - 5432:5432
     restart: always
     volumes:
       # - /tmp/django2-heroku/database:/var/lib/postgresql/data
@@ -40,17 +38,14 @@ services:
       - pki:/etc/pki
 
   cache:
-    container_name: cache
     image: redis:4
     ports:
-      - target: 6379
-        published: 6379
+      - 6379:6379
     restart: always
 
   web:
     build:
       context: django2-heroku
-    container_name: web
 #    command: [ "database:5432", "--", "python", "manage.py", "runserver", "0.0.0.0:80", "--traceback" ]
     command:
       - database:5432
@@ -93,8 +88,6 @@ services:
     ports:
       - 80:80
       - 443:443
-    privileged: true
-    tty: true
     volumes:
       - pki:/etc/pki
 #      - ./ansistrano-django2-heroku:/root/ansistrano-django2-heroku
